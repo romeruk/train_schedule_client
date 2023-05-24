@@ -19,6 +19,9 @@ import { Header } from "./components/header";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import { StationList, StationCreate, StationEdit } from './pages/stations';
 import { RouteList, RouteCreate, RouteEdit } from './pages/routes'
+import { TrainList, TrainCreate, TrainEdit } from './pages/trains'
+import { ScheduleList } from './pages/trains/schedule';
+
 // import { MuiInferencer } from "@refinedev/inferencer/mui";
 
 function App() {
@@ -52,6 +55,15 @@ function App() {
                     canDelete: true,
                   },
                 },
+								{
+                  name: "trains",
+                  list: "/trains",
+                  create: "/trains/create",
+                  edit: "/trains/edit/:id",
+                  meta: {
+                    canDelete: true,
+                  },
+                },
               ]}
               options={{
                 syncWithLocation: true,
@@ -81,6 +93,14 @@ function App() {
                     <Route path="create" element={<RouteCreate />} />
                     <Route path="edit/:id" element={<RouteEdit />} />
                   </Route>
+
+									<Route path="/trains">
+									<Route index element={<TrainList />} />
+                    <Route path="create" element={<TrainCreate />} />
+                    <Route path="edit/:id" element={<TrainEdit />} />
+										<Route path=":id/route/:routeId/schedule" element={<ScheduleList />} />
+                  </Route>
+
                   <Route path="*" element={<ErrorComponent />} />
                 </Route>
               </Routes>

@@ -28,7 +28,7 @@ export const RouteList: React.FC = () => {
       },
       {
         field: "route_title",
-        headerName: "route",
+        headerName: "Route",
         type: "string",
 				flex: 0.5
       },

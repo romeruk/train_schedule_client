@@ -35,7 +35,7 @@ export const RouteCreate = () => {
           fullWidth
           InputLabelProps={{ shrink: true }}
           type="text"
-          label="route Title"
+          label="Route Title"
           name="route_title"
         />
       </Box>
