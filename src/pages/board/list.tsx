@@ -1,5 +1,5 @@
-import React from "react";
-import { useAutocomplete } from "@refinedev/mui";
+import React, { useMemo } from "react";
+import { DateField, useAutocomplete } from "@refinedev/mui";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -7,17 +7,15 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
-import { useTable } from "@refinedev/core";
+import { HttpError, useTable } from "@refinedev/core";
 
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 import {
   Autocomplete,
   Box,
-  MenuItem,
-  Select,
   TextField,
   Typography,
 } from "@mui/material";
@@ -45,17 +43,47 @@ export const BoardList = () => {
 
   const {
     tableQueryResult: { data, isLoading, isError },
-    // current,
-    // setCurrent,
-    // setPageSize,
-    // pageCount,
-    // sorter,
-    // setSorter,
-    // filters,
-    // setFilters,
-  } = useTable<IBoard>();
+    filters,
+    setFilters,
+  } = useTable<IBoard, HttpError>({
+    pagination: {
+      mode: "off",
+    },
+    syncWithLocation: true,
+  });
 
   const trainsData = data?.data ?? [];
+
+  const currentFilterValues = useMemo(() => {
+    const logicalFilters = filters.flatMap((item) =>
+      "field" in item ? item : []
+    );
+
+    const departureStationId =
+      logicalFilters.find((item) => item.field === "departureStation")?.value ||
+      "";
+
+    const arrivalStationId =
+      logicalFilters.find((item) => item.field === "arrivalStation")?.value ||
+      "";
+
+			const departureDate =
+      logicalFilters.find((item) => item.field === "departureDate")?.value ||
+      "";
+
+    const dpData = autocompleteProps.options.find(
+      (v) => v.station_id.toString() === departureStationId
+    );
+    const arvData = autocompleteProps.options.find(
+      (v) => v.station_id.toString() === arrivalStationId
+    );
+
+    return {
+      departureStation: dpData,
+      arrivalStation: arvData,
+			departureDate
+    };
+  }, [autocompleteProps.options, filters]);
 
   if (isLoading) return <Typography>Loading...</Typography>;
   if (isError) return <Typography>Error...</Typography>;
@@ -72,10 +100,18 @@ export const BoardList = () => {
       >
         <Box display="flex" gap={2} flexWrap="wrap" mb={{ xs: "20px", sm: 0 }}>
           <Autocomplete
+            disabled={autocompleteProps.loading}
+            value={currentFilterValues.departureStation ?? null}
             sx={{ width: 300 }}
             {...autocompleteProps}
-            onChange={(_, value) => {
-              console.log(value);
+            onChange={(_, option) => {
+              setFilters([
+                {
+                  field: "departureStation",
+                  operator: "eq",
+                  value: option?.station_id,
+                },
+              ]);
             }}
             getOptionLabel={(option) => {
               return option.station_title;
@@ -87,6 +123,7 @@ export const BoardList = () => {
             placeholder="Route from"
             renderInput={(params) => (
               <TextField
+                value={currentFilterValues.departureStation}
                 {...params}
                 label="Select route from"
                 margin="normal"
@@ -99,8 +136,16 @@ export const BoardList = () => {
           <Autocomplete
             sx={{ width: 300 }}
             {...autocompleteProps}
-            onChange={(_, value) => {
-              console.log(value);
+            disabled={autocompleteProps.loading}
+            value={currentFilterValues.arrivalStation ?? null}
+            onChange={(_, option) => {
+              setFilters([
+                {
+                  field: "arrivalStation",
+                  operator: "eq",
+                  value: option?.station_id,
+                },
+              ]);
             }}
             getOptionLabel={(option) => {
               return option.station_title;
@@ -122,62 +167,21 @@ export const BoardList = () => {
           />
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <DateTimePicker label="Departure time" />
+            <DatePicker
+              label="Departure date"
+							format="YYYY-MM-DD"
+							// value={currentFilterValues.departureDate}
+              onChange={(value) => {
+                setFilters([
+                  {
+                    field: "departureDate",
+                    operator: "eq",
+                    value: value.format("YYYY-MM-DD"),
+                  },
+                ]);
+              }}
+            />
           </LocalizationProvider>
-          {/* <TextField
-            variant="outlined"
-            color="info"
-            placeholder="Search by title"
-            value={""}
-            onChange={(e) => {
-              // setFilters([
-              //   {
-              //     field: "title",
-              //     operator: "contains",
-              //     value: e.currentTarget.value
-              //       ? e.currentTarget.value
-              //       : undefined,
-              //   },
-              // ]);
-            }}
-          />
-          <Select
-            variant="outlined"
-            color="info"
-            displayEmpty
-            required
-            inputProps={{ "aria-label": "Without label" }}
-            defaultValue=""
-            value={""}
-            onChange={(e) => {
-              // setFilters(
-              //   [
-              //     {
-              //       field: "propertyType",
-              //       operator: "eq",
-              //       value: e.target.value,
-              //     },
-              //   ],
-              //   "replace"
-              // );
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {[
-              "Apartment",
-              "Villa",
-              "Farmhouse",
-              "Condos",
-              "Townhouse",
-              "Duplex",
-              "Studio",
-              "Chalet",
-            ].map((type) => (
-              <MenuItem key={type} value={type.toLowerCase()}>
-                {type}
-              </MenuItem>
-            ))} */}
-          {/* </Select> */}
         </Box>
       </Box>
       <TableContainer component={Paper}>
@@ -200,8 +204,18 @@ export const BoardList = () => {
                 <TableCell component="th" scope="row">
                   {row.train_no}
                 </TableCell>
-                <TableCell align="right">{row.departure_time}</TableCell>
-                <TableCell align="right">{row.arrival_time}</TableCell>
+                <TableCell align="right">
+                  <DateField
+                    format="DD/MM/YYYY hh:mm:ss"
+                    value={row.departure_time}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <DateField
+                    format="DD/MM/YYYY hh:mm:ss"
+                    value={row.arrival_time}
+                  />
+                </TableCell>
                 <TableCell align="right">
                   {row.departure_start_station}
                 </TableCell>
