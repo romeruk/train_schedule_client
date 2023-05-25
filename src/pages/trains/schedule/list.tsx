@@ -1,24 +1,19 @@
 import React, { useCallback } from "react";
-import { useCustomMutation, useApiUrl } from "@refinedev/core";
-import { List, useDataGrid } from "@refinedev/mui";
-import { useParams, useLocation } from "react-router-dom";
+import { useDelete } from "@refinedev/core";
+import { DateField, DeleteButton, List, useDataGrid } from "@refinedev/mui";
+import { useParams } from "react-router-dom";
 import { DataGrid, GridColumns } from "@mui/x-data-grid";
-import { Button } from "@mui/material";
-
-type Optional<T, K extends keyof T> = Pick<Partial<T>, K> & Omit<T, K>;
 
 interface ISchedule {
   station_title: string;
   arrival_time: string;
   departure_time: string;
   station_id: string;
+	schedule_order: number;
 }
 
-type ScheduleOptional = Optional<ISchedule, "arrival_time" | "departure_time" | "station_title">;
-
 export const ScheduleList = () => {
-  const API_URL = useApiUrl();
-  const { mutate } = useCustomMutation();
+  const { mutate } = useDelete();
   const { id, routeId } = useParams();
 
   const { dataGridProps } = useDataGrid<ISchedule>({
@@ -28,33 +23,17 @@ export const ScheduleList = () => {
     resource: `trains/${id}/route/${routeId}/schedule`,
   });
 
-  const onClickDelete = useCallback((station_id: string) => {
-    const schedule = dataGridProps.rows.map((d: ScheduleOptional, index) => {
-
-			delete d["station_title"];
-
-      if (d.arrival_time === "") {
-        delete d["arrival_time"];
-      }
-
-      if (d.departure_time === "") {
-        delete d["departure_time"];
-      }
-
-      return {
-        ...d,
-        schedule_order: index + 1,
-      };
-    }).filter(schedule => schedule.station_id !== station_id);
-
-    mutate({
-      url: `${API_URL}/trains/${id}/route/${routeId}/schedule`,
-      method: "put",
-      values: {
-        schedule,
-      },
-    });
-  }, [API_URL, dataGridProps.rows, id, mutate, routeId]);
+  console.log("dataGridProps", dataGridProps.rows);
+  const onClickDelete = useCallback(
+    (station_id: string) => {
+      mutate({
+        resource: `trains/${id}/route/${routeId}/station`,
+        id: station_id,
+        invalidates: ["all"],
+      });
+    },
+    [id, mutate, routeId]
+  );
 
   const columns = React.useMemo<GridColumns<ISchedule>>(
     () => [
@@ -69,7 +48,13 @@ export const ScheduleList = () => {
       {
         field: "arrival_time",
         headerName: "Arrival time",
-        type: "string",
+        renderCell: function render({ row }) {
+					if (row.arrival_time == "" || !row.arrival_time) {
+						return "-"
+					}
+
+          return <DateField format="DD/MM/YYYY hh:mm:ss" value={row.arrival_time} />;
+        },
         flex: 1,
         sortable: false,
         filterable: false,
@@ -77,11 +62,25 @@ export const ScheduleList = () => {
       {
         field: "departure_time",
         headerName: "Departure time",
-        type: "string",
+        renderCell: function render({ row }) {
+					if (row.departure_time == "" || !row.departure_time) {
+						return "-"
+					}
+
+          return <DateField format="DD/MM/YYYY hh:mm:ss" value={row.departure_time} />;
+        },
         flex: 0.5,
         sortable: false,
         filterable: false,
       },
+			{
+				field: 'schedule_order',
+				headerName: "Order",
+        type: "number",
+        flex: 0.3,
+        sortable: false,
+        filterable: false,
+			},
       {
         field: "actions",
         headerName: "Actions",
@@ -90,9 +89,7 @@ export const ScheduleList = () => {
         renderCell: function render({ row }) {
           return (
             <>
-              <Button color="secondary" onClick={() => onClickDelete(row.station_id)}>
-                Delete
-              </Button>
+              <DeleteButton onClick={() => onClickDelete(row.station_id)} />
             </>
           );
         },

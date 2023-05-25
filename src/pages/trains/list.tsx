@@ -1,5 +1,10 @@
 import React from "react";
-import { useDataGrid, List, EditButton } from "@refinedev/mui";
+import {
+  useDataGrid,
+  List,
+  EditButton,
+  DateField,
+} from "@refinedev/mui";
 import { DataGrid, GridColumns } from "@mui/x-data-grid";
 import { Link } from "react-router-dom";
 
@@ -50,7 +55,9 @@ export const TrainList: React.FC = () => {
       {
         field: "created_at",
         headerName: "Created At",
-        type: "string",
+        renderCell: function render({ row }) {
+          return <DateField format="DD/MM/YYYY hh:mm:ss" value={row.created_at} />;
+        },
         flex: 1,
         sortable: false,
         filterable: false,
@@ -58,7 +65,9 @@ export const TrainList: React.FC = () => {
       {
         field: "updated_at",
         headerName: "Updated At",
-        type: "string",
+        renderCell: function render({ row }) {
+          return <DateField format="DD/MM/YYYY hh:mm:ss" value={row.updated_at} />;
+        },
         flex: 1,
         sortable: false,
         filterable: false,
@@ -71,13 +80,9 @@ export const TrainList: React.FC = () => {
           return (
             <>
               <EditButton hideText recordItemId={row.train_id} />
-              <Link
-                to={`${row.train_id}/route/${row.route_id}/schedule`}
-              >
-                Shedule
+              <Link to={`${row.train_id}/route/${row.route_id}/schedule`}>
+                Schedule
               </Link>
-              {/* <Button onClick={() => navigate(`${row.train_id}/schedule`)}>Schedule</Button> */}
-              {/* <ShowButton hideText recordItemId={row.route_id} /> */}
             </>
           );
         },
@@ -92,6 +97,7 @@ export const TrainList: React.FC = () => {
   return (
     <List>
       <DataGrid
+
         getRowId={(row) => row.train_id}
         {...dataGridProps}
         columns={columns}
