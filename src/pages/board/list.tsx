@@ -37,17 +37,30 @@ interface IBoard {
 }
 
 type FormValues = {
-  departureStation: IStation;
-  arrivalStation: IStation;
-  departureDate: Dayjs;
+  departureStation: IStation | null;
+  arrivalStation: IStation | null;
+  departureDate: Dayjs | null;
 };
 
 export const BoardList = () => {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    getValues,
+  } = useForm<FormValues>({
+    defaultValues: {
+      departureDate: null,
+      arrivalStation: null,
+      departureStation: null,
+    },
+  });
+
   const { autocompleteProps } = useAutocomplete<IStation>({
     resource: "stations",
   });
 
-	console.log("autocompleteProps", autocompleteProps)
   const {
     tableQueryResult: { data, isLoading, isError },
     filters,
@@ -59,71 +72,31 @@ export const BoardList = () => {
     syncWithLocation: true,
   });
 
-  console.log(filters);
-
   const trainsData = data?.data ?? [];
-
-  const currentFilterValues = useMemo(() => {
-    const logicalFilters = filters.flatMap((item) =>
-      "field" in item ? item : []
-    );
-
-    const departureStationId =
-      logicalFilters.find((item) => item.field === "departureStation")?.value ||
-      "";
-
-    const arrivalStationId =
-      logicalFilters.find((item) => item.field === "arrivalStation")?.value ||
-      "";
-
-    const departureDate =
-      logicalFilters.find((item) => item.field === "departureDate")?.value ||
-      "";
-
-    const dpData = autocompleteProps.options.find(
-      (v) => v.station_id.toString() === departureStationId
-    );
-    const arvData = autocompleteProps.options.find(
-      (v) => v.station_id.toString() === arrivalStationId
-    );
-
-    return {
-      departureStation: dpData,
-      arrivalStation: arvData,
-      departureDate,
-    };
-  }, [autocompleteProps.options, filters]);
-
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-  } = useForm<FormValues>();
 
   const onSubmit: SubmitHandler<FormValues> = (data, e) => {
     const { departureDate, departureStation, arrivalStation } = data;
     console.log({
-      departureDate: departureDate.format("YYYY-MM-DD"),
-      departureStation: departureStation.station_id,
-      arrivalStation: arrivalStation.station_id,
+      departureDate: departureDate?.format("YYYY-MM-DD"),
+      departureStation: departureStation?.station_id,
+      arrivalStation: arrivalStation?.station_id,
     });
 
     const buildFilters = [
       {
         field: "departureStation",
         operator: "eq",
-        value: departureStation.station_id,
+        value: departureStation?.station_id,
       },
       {
         field: "arrivalStation",
         operator: "eq",
-        value: arrivalStation.station_id,
+        value: arrivalStation?.station_id,
       },
       {
         field: "departureDate",
         operator: "eq",
-        value: departureDate.format("YYYY-MM-DD"),
+        value: departureDate?.format("YYYY-MM-DD"),
       },
     ];
 
@@ -131,6 +104,48 @@ export const BoardList = () => {
 
     e?.preventDefault();
   };
+
+  const onError = (errors, e) => console.log(errors, e);
+
+  useEffect(() => {
+    if (!getValues("departureDate")) {
+      const logicalFilters = filters.flatMap((item) =>
+        "field" in item ? item : []
+      );
+
+      const departureDate: string | null =
+        logicalFilters.find((item) => item.field === "departureDate")?.value ||
+        null;
+
+      setValue("departureDate", dayjs(departureDate));
+    }
+  }, [filters, getValues, setValue]);
+
+  useEffect(() => {
+    if (!getValues("arrivalStation") && !getValues("departureStation")) {
+      const logicalFilters = filters.flatMap((item) =>
+        "field" in item ? item : []
+      );
+
+      const departureStationId: string | null =
+        logicalFilters.find((item) => item.field === "departureStation")
+          ?.value || null;
+
+      const arrivalStationId: string | null =
+        logicalFilters.find((item) => item.field === "arrivalStation")?.value ||
+        null;
+
+      const dpData = autocompleteProps.options.find(
+        (v) => v.station_id.toString() === departureStationId
+      );
+      const arvData = autocompleteProps.options.find(
+        (v) => v.station_id.toString() === arrivalStationId
+      );
+
+      setValue("arrivalStation", arvData ?? null);
+      setValue("departureStation", dpData ?? null);
+    }
+  }, [autocompleteProps.options, filters, getValues, setValue]);
 
   return (
     <>
@@ -144,7 +159,7 @@ export const BoardList = () => {
       >
         <Box
           component="form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, onError)}
           display="flex"
           gap={2}
           flexWrap="wrap"
@@ -154,7 +169,6 @@ export const BoardList = () => {
             control={control}
             name="departureStation"
             rules={{ required: "This field is required" }}
-            defaultValue={currentFilterValues.departureStation ?? null}
             render={({ field }) => (
               <Autocomplete
                 {...autocompleteProps}
@@ -168,9 +182,6 @@ export const BoardList = () => {
                   return option.station_title;
                 }}
                 isOptionEqualToValue={(option, value) => {
-                  console.log("option", option);
-                  console.log("value", value);
-
                   return (
                     value === undefined ||
                     option?.station_id?.toString() ===
@@ -178,7 +189,6 @@ export const BoardList = () => {
                   );
                 }}
                 placeholder="Route from"
-                // value={currentFilterValues.departureStation ?? null}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -198,11 +208,11 @@ export const BoardList = () => {
             control={control}
             name="arrivalStation"
             rules={{ required: "This field is required" }}
-            defaultValue={currentFilterValues.arrivalStation ?? null}
             render={({ field }) => (
               <Autocomplete
                 {...autocompleteProps}
                 {...field}
+                // value={currentFilterValues.arrivalStation}
                 sx={{ width: 300 }}
                 disabled={isLoading || autocompleteProps.loading}
                 onChange={(_, option) => {
@@ -217,10 +227,9 @@ export const BoardList = () => {
                     value?.station_id?.toString()
                 }
                 placeholder="Route to"
-                // value={currentFilterValues.arrivalStation ?? null}
                 renderInput={(params) => (
                   <TextField
-									{...params}
+                    {...params}
                     sx={{ margin: 0 }}
                     label="Select route to"
                     margin="normal"
@@ -237,7 +246,6 @@ export const BoardList = () => {
             control={control}
             name="departureDate"
             rules={{ required: "This field is required" }}
-            defaultValue={dayjs(currentFilterValues.departureDate) || null}
             render={({ field }) => (
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
