@@ -1,24 +1,24 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
+import dayjs, { Dayjs } from "dayjs";
 import { DateField, useAutocomplete } from "@refinedev/mui";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+} from "@mui/material";
 import Paper from "@mui/material/Paper";
 import { HttpError, useTable } from "@refinedev/core";
 
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 
-import {
-  Autocomplete,
-  Box,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Autocomplete, Box, TextField, Typography } from "@mui/material";
+import { Controller, SubmitHandler, useForm } from "react-hook-form";
 
 interface IStation {
   station_id: string;
@@ -36,11 +36,18 @@ interface IBoard {
   arrival_end_station: "string";
 }
 
+type FormValues = {
+  departureStation: IStation;
+  arrivalStation: IStation;
+  departureDate: Dayjs;
+};
+
 export const BoardList = () => {
   const { autocompleteProps } = useAutocomplete<IStation>({
     resource: "stations",
   });
 
+	console.log("autocompleteProps", autocompleteProps)
   const {
     tableQueryResult: { data, isLoading, isError },
     filters,
@@ -51,6 +58,8 @@ export const BoardList = () => {
     },
     syncWithLocation: true,
   });
+
+  console.log(filters);
 
   const trainsData = data?.data ?? [];
 
@@ -67,7 +76,7 @@ export const BoardList = () => {
       logicalFilters.find((item) => item.field === "arrivalStation")?.value ||
       "";
 
-			const departureDate =
+    const departureDate =
       logicalFilters.find((item) => item.field === "departureDate")?.value ||
       "";
 
@@ -81,12 +90,47 @@ export const BoardList = () => {
     return {
       departureStation: dpData,
       arrivalStation: arvData,
-			departureDate
+      departureDate,
     };
   }, [autocompleteProps.options, filters]);
 
-  if (isLoading) return <Typography>Loading...</Typography>;
-  if (isError) return <Typography>Error...</Typography>;
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+  } = useForm<FormValues>();
+
+  const onSubmit: SubmitHandler<FormValues> = (data, e) => {
+    const { departureDate, departureStation, arrivalStation } = data;
+    console.log({
+      departureDate: departureDate.format("YYYY-MM-DD"),
+      departureStation: departureStation.station_id,
+      arrivalStation: arrivalStation.station_id,
+    });
+
+    const buildFilters = [
+      {
+        field: "departureStation",
+        operator: "eq",
+        value: departureStation.station_id,
+      },
+      {
+        field: "arrivalStation",
+        operator: "eq",
+        value: arrivalStation.station_id,
+      },
+      {
+        field: "departureDate",
+        operator: "eq",
+        value: departureDate.format("YYYY-MM-DD"),
+      },
+    ];
+
+    setFilters(buildFilters);
+
+    e?.preventDefault();
+  };
 
   return (
     <>
@@ -94,137 +138,175 @@ export const BoardList = () => {
         mb={2}
         mt={3}
         display="flex"
-        width="84%"
+        width="100%"
         justifyContent="space-between"
         flexWrap="wrap"
       >
-        <Box display="flex" gap={2} flexWrap="wrap" mb={{ xs: "20px", sm: 0 }}>
-          <Autocomplete
-            disabled={autocompleteProps.loading}
-            value={currentFilterValues.departureStation ?? null}
-            sx={{ width: 300 }}
-            {...autocompleteProps}
-            onChange={(_, option) => {
-              setFilters([
-                {
-                  field: "departureStation",
-                  operator: "eq",
-                  value: option?.station_id,
-                },
-              ]);
-            }}
-            getOptionLabel={(option) => {
-              return option.station_title;
-            }}
-            isOptionEqualToValue={(option, value) =>
-              value === undefined ||
-              option?.station_id?.toString() === value?.station_id?.toString()
-            }
-            placeholder="Route from"
-            renderInput={(params) => (
-              <TextField
-                value={currentFilterValues.departureStation}
-                {...params}
-                label="Select route from"
-                margin="normal"
-                variant="outlined"
-                required
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSubmit)}
+          display="flex"
+          gap={2}
+          flexWrap="wrap"
+          mb={{ xs: "20px", sm: 0 }}
+        >
+          <Controller
+            control={control}
+            name="departureStation"
+            rules={{ required: "This field is required" }}
+            defaultValue={currentFilterValues.departureStation ?? null}
+            render={({ field }) => (
+              <Autocomplete
+                {...autocompleteProps}
+                {...field}
+                sx={{ width: 300 }}
+                disabled={isLoading || autocompleteProps.loading}
+                onChange={(_, option) => {
+                  return field.onChange(option);
+                }}
+                getOptionLabel={(option) => {
+                  return option.station_title;
+                }}
+                isOptionEqualToValue={(option, value) => {
+                  console.log("option", option);
+                  console.log("value", value);
+
+                  return (
+                    value === undefined ||
+                    option?.station_id?.toString() ===
+                      value?.station_id?.toString()
+                  );
+                }}
+                placeholder="Route from"
+                // value={currentFilterValues.departureStation ?? null}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    sx={{ margin: 0 }}
+                    label="Select route"
+                    margin="normal"
+                    variant="outlined"
+                    error={!!errors.departureStation}
+                    helperText={errors?.departureStation?.message}
+                  />
+                )}
               />
             )}
           />
 
-          <Autocomplete
-            sx={{ width: 300 }}
-            {...autocompleteProps}
-            disabled={autocompleteProps.loading}
-            value={currentFilterValues.arrivalStation ?? null}
-            onChange={(_, option) => {
-              setFilters([
-                {
-                  field: "arrivalStation",
-                  operator: "eq",
-                  value: option?.station_id,
-                },
-              ]);
-            }}
-            getOptionLabel={(option) => {
-              return option.station_title;
-            }}
-            isOptionEqualToValue={(option, value) =>
-              value === undefined ||
-              option?.station_id?.toString() === value?.station_id?.toString()
-            }
-            placeholder="Route to"
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Select route to"
-                margin="normal"
-                variant="outlined"
-                required
+          <Controller
+            control={control}
+            name="arrivalStation"
+            rules={{ required: "This field is required" }}
+            defaultValue={currentFilterValues.arrivalStation ?? null}
+            render={({ field }) => (
+              <Autocomplete
+                {...autocompleteProps}
+                {...field}
+                sx={{ width: 300 }}
+                disabled={isLoading || autocompleteProps.loading}
+                onChange={(_, option) => {
+                  field.onChange(option);
+                }}
+                getOptionLabel={(option) => {
+                  return option.station_title;
+                }}
+                isOptionEqualToValue={(option, value) =>
+                  value === undefined ||
+                  option?.station_id?.toString() ===
+                    value?.station_id?.toString()
+                }
+                placeholder="Route to"
+                // value={currentFilterValues.arrivalStation ?? null}
+                renderInput={(params) => (
+                  <TextField
+									{...params}
+                    sx={{ margin: 0 }}
+                    label="Select route to"
+                    margin="normal"
+                    variant="outlined"
+                    error={!!errors.arrivalStation}
+                    helperText={errors?.arrivalStation?.message}
+                  />
+                )}
               />
             )}
           />
 
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <DatePicker
-              label="Departure date"
-							format="YYYY-MM-DD"
-							// value={currentFilterValues.departureDate}
-              onChange={(value) => {
-                setFilters([
-                  {
-                    field: "departureDate",
-                    operator: "eq",
-                    value: value.format("YYYY-MM-DD"),
-                  },
-                ]);
-              }}
-            />
-          </LocalizationProvider>
+          <Controller
+            control={control}
+            name="departureDate"
+            rules={{ required: "This field is required" }}
+            defaultValue={dayjs(currentFilterValues.departureDate) || null}
+            render={({ field }) => (
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  {...field}
+                  disabled={isLoading}
+                  minDate={dayjs(new Date())}
+                  label="Departure date"
+                  format="YYYY-MM-DD"
+                  slotProps={{
+                    textField: {
+                      error: !!errors.departureDate,
+                      helperText: errors?.departureDate?.message,
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            )}
+          />
+
+          <Button type="submit" disabled={isLoading} variant="outlined">
+            Get data
+          </Button>
         </Box>
       </Box>
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="simple table">
-          <TableHead>
-            <TableRow>
-              <TableCell>Train number</TableCell>
-              <TableCell align="right">Arrival time</TableCell>
-              <TableCell align="right">Departure time</TableCell>
-              <TableCell align="right">Departure from</TableCell>
-              <TableCell align="right">Arrival to</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {trainsData.map((row) => (
-              <TableRow
-                key={row.train_id}
-                sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
-              >
-                <TableCell component="th" scope="row">
-                  {row.train_no}
-                </TableCell>
-                <TableCell align="right">
-                  <DateField
-                    format="DD/MM/YYYY hh:mm:ss"
-                    value={row.departure_time}
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <DateField
-                    format="DD/MM/YYYY hh:mm:ss"
-                    value={row.arrival_time}
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  {row.departure_start_station}
-                </TableCell>
-                <TableCell align="right">{row.arrival_end_station}</TableCell>
+      {!trainsData.length || isError ? (
+        <Typography>No Data found</Typography>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table sx={{ minWidth: 650 }} aria-label="simple table">
+            <TableHead>
+              <TableRow>
+                <TableCell>Train number</TableCell>
+                <TableCell align="right">Start station</TableCell>
+                <TableCell align="right">End station</TableCell>
+                <TableCell align="right">Departure time</TableCell>
+                <TableCell align="right">Arrival time</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {trainsData.map((row) => (
+                <TableRow
+                  key={row.train_id}
+                  sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
+                >
+                  <TableCell component="th" scope="row">
+                    {row.train_no}
+                  </TableCell>
+                  <TableCell align="right">
+                    {row.departure_start_station}
+                  </TableCell>
+                  <TableCell align="right">{row.arrival_end_station}</TableCell>
+                  <TableCell align="right">
+                    <DateField
+                      format="DD/MM/YYYY hh:mm:ss"
+                      value={row.departure_time}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <DateField
+                      format="DD/MM/YYYY hh:mm:ss"
+                      value={row.arrival_time}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </>
   );
 };

@@ -26,8 +26,6 @@ export const TrainCreate = () => {
     resource: "routes",
   });
 
-  console.log(autocompleteProps);
-
   return (
     <Create isLoading={formLoading} saveButtonProps={saveButtonProps}>
       <Box
