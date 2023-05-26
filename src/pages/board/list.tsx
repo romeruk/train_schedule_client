@@ -108,7 +108,7 @@ export const BoardList = () => {
   const onError = (errors, e) => console.log(errors, e);
 
   useEffect(() => {
-    if (!getValues("departureDate")) {
+    if (!getValues("departureDate") && getValues("departureDate")?.isValid()) {
       const logicalFilters = filters.flatMap((item) =>
         "field" in item ? item : []
       );
